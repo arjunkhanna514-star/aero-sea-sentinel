@@ -18,10 +18,10 @@ function latLonToSVG(lat, lon, w = 960, h = 500) {
 // Vessel data with live-updating positions
 const INITIAL_VESSELS = [
   { id:'v1', name:'MV Pacific Sentinel',  callsign:'MVPS-01', type:'SHIP',     lat:35.8, lon:-140.2, heading:285, speed:18.4, fuel:62.4, drag:17.2, status:'ACTIVE',  color:'#00c9ff', route:{ destLat:33.7,  destLon:-118.2 } },
-  { id:'v2', name:'MV Atlantic Guardian', callsign:'MVAG-02', type:'SHIP',     lat:42.1, lon:-32.4,  heading:058, speed:15.1, fuel:78.1, drag:15.8, status:'ACTIVE',  color:'#7ee8a2', route:{ destLat:51.5,  destLon:-0.1   } },
+  { id:'v2', name:'MV Atlantic Guardian', callsign:'MVAG-02', type:'SHIP',     lat:42.1, lon:-32.4,  heading:58, speed:15.1, fuel:78.1, drag:15.8, status:'ACTIVE',  color:'#7ee8a2', route:{ destLat:51.5,  destLon:-0.1   } },
   { id:'v3', name:'AS Horizon Eagle',     callsign:'ASHE-01', type:'AIRCRAFT', lat:51.2, lon:12.4,   heading:290, speed:478,  fuel:54.2, drag:18.4, status:'ACTIVE',  color:'#ffb347', route:{ destLat:40.7,  destLon:-74.0  } },
   { id:'v4', name:'AS Quantum Falcon',    callsign:'ASQF-02', type:'AIRCRAFT', lat:35.7, lon:139.7,  heading:195, speed:452,  fuel:81.0, drag:0,    status:'IDLE',    color:'#9b6dff', route:{ destLat:1.4,   destLon:103.8  } },
-  { id:'v5', name:'MV Shanghai Express',  callsign:'MVSE-03', type:'SHIP',     lat:24.4, lon:155.8,  heading:065, speed:21.2, fuel:44.8, drag:17.0, status:'ACTIVE',  color:'#00e5a0', route:{ destLat:33.7,  destLon:-118.2 } },
+  { id:'v5', name:'MV Shanghai Express',  callsign:'MVSE-03', type:'SHIP',     lat:24.4, lon:155.8,  heading:65, speed:21.2, fuel:44.8, drag:17.0, status:'ACTIVE',  color:'#00e5a0', route:{ destLat:33.7,  destLon:-118.2 } },
 ];
 
 // Key ports/airports for context
