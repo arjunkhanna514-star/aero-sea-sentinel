@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# Environment files
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volumes (never commit)
+postgres_data/
+redis_data/
+ollama_models/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Distribution zips
+*.zip
+
+# Secrets
+*.pem
+*.key
+*.crt

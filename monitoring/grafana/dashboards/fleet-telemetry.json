@@ -1,0 +1,85 @@
+{
+  "title": "Aero-Sea Sentinel — Fleet Telemetry",
+  "uid": "sentinel-fleet",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Active Vessels",
+      "gridPos": { "h": 4, "w": 3, "x": 0, "y": 0 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT COUNT(DISTINCT vessel_id) AS value FROM telemetry WHERE time > NOW() - INTERVAL '30 seconds'",
+        "format": "table"
+      }]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Avg Drag Reduction %",
+      "gridPos": { "h": 4, "w": 3, "x": 3, "y": 0 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT ROUND(AVG(drag_reduction_pct)::numeric, 2) AS value FROM telemetry WHERE time > NOW() - INTERVAL '30 seconds'",
+        "format": "table"
+      }],
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color":"red","value":0},{"color":"yellow","value":12},{"color":"green","value":16}] } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Avg Quantum Coherence",
+      "gridPos": { "h": 4, "w": 3, "x": 6, "y": 0 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT ROUND(AVG(quantum_coherence_pct)::numeric, 2) AS value FROM telemetry WHERE time > NOW() - INTERVAL '30 seconds' AND quantum_coherence_pct IS NOT NULL",
+        "format": "table"
+      }],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Total CO₂/hr (fleet)",
+      "gridPos": { "h": 4, "w": 3, "x": 9, "y": 0 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT ROUND(SUM(co2_kg_per_hour)::numeric, 1) AS value FROM (SELECT DISTINCT ON (vessel_id) co2_kg_per_hour FROM telemetry ORDER BY vessel_id, time DESC) t",
+        "format": "table"
+      }],
+      "fieldConfig": { "defaults": { "unit": "kg" } }
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Drag Reduction % — All Vessels",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT time_bucket('10 seconds', t.time) AS time, v.name AS metric, AVG(t.drag_reduction_pct) AS value FROM telemetry t JOIN vessels v ON v.id=t.vessel_id WHERE t.time > NOW() - INTERVAL '1 hour' GROUP BY 1,2 ORDER BY 1",
+        "format": "time_series"
+      }]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Fuel Burn Rate L/hr",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT time_bucket('10 seconds', t.time) AS time, v.name AS metric, AVG(t.fuel_burn_rate_lph) AS value FROM telemetry t JOIN vessels v ON v.id=t.vessel_id WHERE t.time > NOW() - INTERVAL '1 hour' GROUP BY 1,2 ORDER BY 1",
+        "format": "time_series"
+      }]
+    },
+    {
+      "id": 20, "type": "timeseries", "title": "Quantum Coherence %",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT time_bucket('10 seconds', t.time) AS time, v.name AS metric, AVG(t.quantum_coherence_pct) AS value FROM telemetry t JOIN vessels v ON v.id=t.vessel_id WHERE t.time > NOW() - INTERVAL '1 hour' AND t.quantum_coherence_pct IS NOT NULL GROUP BY 1,2 ORDER BY 1",
+        "format": "time_series"
+      }]
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "Fleet Fuel Level %",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "targets": [{
+        "datasource": "TimescaleDB",
+        "rawSql": "SELECT time_bucket('30 seconds', t.time) AS time, v.name AS metric, AVG(t.fuel_level_pct) AS value FROM telemetry t JOIN vessels v ON v.id=t.vessel_id WHERE t.time > NOW() - INTERVAL '6 hours' GROUP BY 1,2 ORDER BY 1",
+        "format": "time_series"
+      }]
+    }
+  ]
+}

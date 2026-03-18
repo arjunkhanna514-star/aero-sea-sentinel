@@ -1,0 +1,273 @@
+# ============================================================
+# AERO-SEA SENTINEL — Docker Compose (Full Production Stack)
+# Services: PostgreSQL/TimescaleDB, Redis, Backend API,
+#           AI Service, Frontend, Nginx, Prometheus, Grafana,
+#           Telemetry Simulator
+# ============================================================
+
+version: "3.9"
+
+networks:
+  sentinel-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_models:
+  prometheus_data:
+  grafana_data:
+  nginx_certs:
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # DATABASE — TimescaleDB (PostgreSQL 16 + time-series ext)
+  # ──────────────────────────────────────────────────────────
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: sentinel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       aero_sea_sentinel
+      POSTGRES_USER:     sentinel_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sentinel_secret_2025}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations/001_init_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seeds/001_seed_data.sql:/docker-entrypoint-initdb.d/02_seeds.sql
+    ports:
+      - "5432:5432"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel_user -d aero_sea_sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ──────────────────────────────────────────────────────────
+  # REDIS — WebSocket pub/sub + caching
+  # ──────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────
+  # BACKEND — Node.js / Express API + WebSocket
+  # ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+    container_name: sentinel-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV:         production
+      PORT:             4000
+      DB_HOST:          postgres
+      DB_PORT:          5432
+      DB_NAME:          aero_sea_sentinel
+      DB_USER:          sentinel_user
+      DB_PASSWORD:      ${DB_PASSWORD:-sentinel_secret_2025}
+      DB_POOL_MIN:      5
+      DB_POOL_MAX:      30
+      REDIS_HOST:       redis
+      REDIS_PORT:       6379
+      JWT_SECRET:       ${JWT_SECRET:-change_this_in_production_256bit_secret}
+      JWT_EXPIRES_IN:   8h
+      AI_SERVICE_URL:   http://ai-service:8000
+      CORS_ORIGINS:     ${CORS_ORIGINS:-http://localhost,http://frontend:3000}
+      TELEMETRY_BROADCAST_MS: 1000
+      LOG_LEVEL:        info
+    ports:
+      - "4000:4000"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.20
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:4000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────────────────────
+  # AI SERVICE — FastAPI + Ollama (Llama 3 8B)
+  # ──────────────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: ../docker/ai-service/Dockerfile
+    container_name: sentinel-ai
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST:  http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3:8b}
+    ports:
+      - "8000:8000"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.21
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8000/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # OLLAMA runs locally on Windows host — not in Docker
+  # The ai-service connects to host.docker.internal:11434
+  # Make sure Ollama is running in your system tray
+
+  # ──────────────────────────────────────────────────────────
+  # FRONTEND — React + Vite (production build served by nginx)
+  # ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+      args:
+        VITE_API_URL:  ${VITE_API_URL:-http://localhost:4000/api/v1}
+        VITE_WS_URL:   ${VITE_WS_URL:-ws://localhost:4000/ws/telemetry}
+    container_name: sentinel-frontend
+    restart: unless-stopped
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.30
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:80 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────
+  # NGINX — Reverse proxy (SSL termination + load balancing)
+  # ──────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sentinel-nginx
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_certs:/etc/nginx/certs
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.40
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────
+  # TELEMETRY SIMULATOR — generates realistic IoT data
+  # ──────────────────────────────────────────────────────────
+  simulator:
+    build:
+      context: ./simulator
+      dockerfile: ../docker/simulator/Dockerfile
+    container_name: sentinel-simulator
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_URL:       http://backend:4000/api/v1
+      ADMIN_EMAIL:   admin@sentinel.io
+      ADMIN_PASSWORD: Sentinel2025!
+      SIM_INTERVAL_MS: 1000
+      SIM_VESSELS:   5
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.50
+
+  # ──────────────────────────────────────────────────────────
+  # PROMETHEUS — metrics collection
+  # ──────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sentinel-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.60
+
+  # ──────────────────────────────────────────────────────────
+  # GRAFANA — operational dashboards
+  # ──────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sentinel-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - postgres
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-sentinel_grafana}
+      GF_SERVER_ROOT_URL:         http://localhost:3001
+      GF_INSTALL_PLUGINS:         grafana-clock-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3001:3000"
+    networks:
+      sentinel-net:
+        ipv4_address: 172.28.0.61

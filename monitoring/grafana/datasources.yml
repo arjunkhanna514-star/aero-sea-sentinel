@@ -1,0 +1,23 @@
+# monitoring/grafana/datasources.yml
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  - name: TimescaleDB
+    type: postgres
+    url: postgres:5432
+    database: aero_sea_sentinel
+    user: sentinel_user
+    secureJsonData:
+      password: ${DB_PASSWORD:-sentinel_secret_2025}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: true
+    editable: true

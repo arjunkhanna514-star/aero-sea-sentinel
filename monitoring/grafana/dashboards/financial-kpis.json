@@ -1,0 +1,62 @@
+{
+  "title": "Aero-Sea Sentinel — Financial KPIs",
+  "uid": "sentinel-finance",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Fleet Savings (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color":"red","value":0},{"color":"yellow","value":400000},{"color":"green","value":480000}] } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT SUM(total_savings_eur) AS value FROM financial_snapshots WHERE snapshot_date >= CURRENT_DATE - 30 AND vessel_id IS NULL", "format": "table" }]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Ship Savings vs €500k Target",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "color": { "fixedColor": "#00c9ff", "mode": "fixed" } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT SUM(ship_savings_eur) AS value FROM financial_snapshots WHERE snapshot_date >= CURRENT_DATE - 30 AND vessel_id IS NULL", "format": "table" }]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Aircraft Savings vs €1.2M Target",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "color": { "fixedColor": "#7ee8a2", "mode": "fixed" } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT SUM(aircraft_savings_eur) AS value FROM financial_snapshots WHERE snapshot_date >= CURRENT_DATE - 30 AND vessel_id IS NULL", "format": "table" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Shanghai–LA Monthly Savings",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "color": { "fixedColor": "#ffb347", "mode": "fixed" } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT COALESCE(SUM(shanghai_la_savings_eur),0) AS value FROM financial_snapshots WHERE snapshot_date >= CURRENT_DATE - 30", "format": "table" }]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Daily Fleet Savings (€)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "color": { "mode": "palette-classic" } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT snapshot_date AS time, ship_savings_eur AS \"Ship\", aircraft_savings_eur AS \"Aircraft\", total_savings_eur AS \"Total\" FROM financial_snapshots WHERE vessel_id IS NULL AND snapshot_date >= CURRENT_DATE - 30 ORDER BY snapshot_date", "format": "time_series" }]
+    },
+    {
+      "id": 20, "type": "bargauge", "title": "Routes Optimised by Status",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT status AS metric, COUNT(*) AS value FROM routes GROUP BY status ORDER BY value DESC", "format": "table" }]
+    },
+    {
+      "id": 21, "type": "piechart", "title": "Alert Distribution by Severity",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT severity AS metric, COUNT(*) AS value FROM alerts WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY severity", "format": "table" }]
+    },
+    {
+      "id": 22, "type": "stat", "title": "Avg Quantum Swarm Confidence",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT ROUND(AVG(swarm_confidence)::numeric,1) AS value FROM routes WHERE is_quantum_swarm=TRUE AND status IN ('ACTIVE','COMPLETED')", "format": "table" }]
+    },
+    {
+      "id": 23, "type": "stat", "title": "CO₂ Saved (Fleet, 30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "tonne", "color": { "fixedColor": "#00e5a0", "mode": "fixed" } } },
+      "targets": [{ "datasource": "TimescaleDB", "rawSql": "SELECT ROUND((fleet_co2_savings_kg/1000)::numeric,1) AS value FROM fleet_kpis ORDER BY recorded_at DESC LIMIT 1", "format": "table" }]
+    }
+  ]
+}

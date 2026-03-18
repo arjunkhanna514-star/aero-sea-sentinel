@@ -1,0 +1,11 @@
+{
+  "name": "sentinel-simulator",
+  "version": "1.0.0",
+  "description": "Aero-Sea Sentinel — Physics-based telemetry simulator",
+  "main": "simulator.js",
+  "scripts": {
+    "start": "node simulator.js",
+    "dev":   "nodemon simulator.js"
+  },
+  "dependencies": {}
+}
