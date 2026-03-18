@@ -18,11 +18,16 @@ async function runMigrations() {
       )
     `);
 
+    const SKIP_MIGRATIONS = ['002_timescale_policies.sql']; // Skip TimescaleDB-specific migrations
     const files = fs.readdirSync(MIGRATIONS_DIR)
       .filter(f => f.endsWith('.sql'))
       .sort();
 
     for (const file of files) {
+      if (SKIP_MIGRATIONS.includes(file)) {
+        console.log(`  → Skipping ${file} (not supported on this DB)`);
+        continue;
+      }
       const { rows } = await client.query(
         'SELECT 1 FROM _migrations WHERE filename = $1', [file]
       );
