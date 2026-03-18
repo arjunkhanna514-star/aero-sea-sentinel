@@ -6,8 +6,8 @@ import { routes as routesApi, alerts as alertsApi } from '../../services/api';
 const MOCK_VESSELS = [
   { id:'1', name:'MV Pacific Sentinel',  callsign:'MVPS-01', type:'SHIP',     status:'ACTIVE', speed:18.4, fuel:62.4, drag:17.2, lat:35.8, lon:-140.2, heading:285 },
   { id:'2', name:'MV Atlantic Guardian', callsign:'MVAG-02', type:'SHIP',     status:'ACTIVE', speed:15.1, fuel:78.1, drag:15.8, lat:42.1, lon:-32.4,  heading:115 },
-  { id:'3', name:'AS Horizon Eagle',     callsign:'ASHE-01', type:'AIRCRAFT', status:'ACTIVE', speed:480,  fuel:54.2, drag:18.4, lat:51.2, lon:12.4,   heading:088 },
-  { id:'4', name:'MV Shanghai Express',  callsign:'MVSE-03', type:'SHIP',     status:'ACTIVE', speed:21.2, fuel:44.8, drag:17.0, lat:24.4, lon:155.8,  heading:060 },
+  { id:'3', name:'AS Horizon Eagle',     callsign:'ASHE-01', type:'AIRCRAFT', status:'ACTIVE', speed:480,  fuel:54.2, drag:18.4, lat:51.2, lon:12.4,   heading:88 },
+  { id:'4', name:'MV Shanghai Express',  callsign:'MVSE-03', type:'SHIP',     status:'ACTIVE', speed:21.2, fuel:44.8, drag:17.0, lat:24.4, lon:155.8,  heading:60 },
 ];
 
 const MOCK_SWARM = [
